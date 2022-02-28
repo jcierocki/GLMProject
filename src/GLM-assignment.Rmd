@@ -1,0 +1,164 @@
+---
+title: "GLM"
+author: "xierui"
+date: "2022/2/28"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(DHARMa)
+library(countreg)
+library(MASS)
+library(magrittr)
+
+victim<-as.data.frame(read.table(file.choose(),header = TRUE))
+```
+
+##1 fit the model
+```{r}
+model.v<-glm(resp ~ race, data=victim, family = poisson())
+summary(model.v)
+```
+
+##2 risk ratio and corresponding CI
+```{r}
+glm.RR <- function(GLM.RESULT, digits = 2) {
+  
+  if (GLM.RESULT$family$family == "binomial") {
+    LABEL <- "OR"
+  } else if (GLM.RESULT$family$family == "poisson") {
+    LABEL <- "RR"
+  } else {
+    stop("Not logistic or Poisson model")
+  }
+  
+  COEF      <- stats::coef(GLM.RESULT)
+  CONFINT   <- stats::confint(GLM.RESULT)
+  TABLE     <- cbind(coef=COEF, CONFINT)
+  TABLE.EXP <- round(exp(TABLE), digits)
+  
+  colnames(TABLE.EXP)[1] <- LABEL
+  
+  TABLE.EXP
+}
+glm.RR(model.v,3)
+```
+
+##3 the ratio of the means of the response for each race
+```{r}
+with(victim, tapply(resp, race, mean))
+#Blacks have higher mean count than whites
+mor<-mean(victim$resp[victim$race=="black"])/mean(victim$resp[victim$race=="white"])
+mor
+```
+
+##4 predictions
+```{r}
+library(dplyr)
+newdata <- victim %>% group_by(race,resp) %>%count(race)
+newdata$num <- predict(model.v, newdata,type = "response")
+newdata
+```
+
+##5 GOF tests
+```{r}
+#Pearson test
+X2.v=sum(residuals(model.v, type = "pearson")^2)
+n.v=dim(victim)[1]
+p.v=length(coef(model.v))
+data.frame(X2s=X2.v,pvalue=(1-pchisq(X2.v,n.v-p.v)))
+
+#Deviance test
+Dev.v=summary(model.v)$deviance
+df.v=summary(model.v)$df.residual
+data.frame(Dev=Dev.v, df=df.v, pvalue=(1-pchisq(Dev.v,df.v)))
+
+with(victim, tapply(resp, race, var))
+#For each race the sample variance is roughly double the mean. It appears we have overdispersion.
+
+sim.model.v<-simulateResiduals(model.v,plot=T)
+hist(sim.model.v)
+rootogram(model.v,ylab='Root Square of Frequency',main='Poisson')
+testUniformity(sim.model.v)
+testDispersion(sim.model.v)
+#the plots show the model has overdispersion
+testZeroInflation(sim.model.v)
+```
+
+##6 negative binomial model
+```{r}
+model.v.nb<-glm.nb(resp ~ race, data=victim)
+summary(model.v.nb)
+
+#estimated model based variances
+pred1 <- exp(predict(model.v.nb, newdata=data.frame(race = c("black","white"))))
+##The estimated variances for counts:
+v_nb <- pred1 + pred1^2 * (1/model.v.nb$theta)
+v_nb
+#compare with the observed variances
+v_obs<-tapply(victim$resp, victim$race, var)
+var_obs_nb <- data.frame(v_obs, v_nb)
+rownames(var_obs_nb) <- c("black", "white")
+var_obs_nb
+
+#Pearson test
+X2.v.nb=sum(residuals(model.v.nb, type = "pearson")^2)
+n.v.nb=dim(victim)[1]
+p.v.nb=length(coef(model.v.nb))
+data.frame(X2s=X2.v.nb,pvalue=(1-pchisq(X2.v.nb,n.v.nb-p.v.nb)))
+
+#Deviance test
+Dev.v.nb=summary(model.v.nb)$deviance
+df.v.nb=summary(model.v.nb)$df.residual
+data.frame(Dev=Dev.v.nb, df=df.v.nb, pvalue=(1-pchisq(Dev.v.nb,df.v.nb)))
+
+#GOF tests of negative binomial model
+sim.model.v.nb<- simulateResiduals(model.v.nb, plot=T)
+hist(sim.model.v.nb)
+testUniformity(sim.model.v.nb)
+rootogram(model.v.nb)
+testDispersion(sim.model.v.nb)
+testZeroInflation(sim.model.v.nb)
+#This looks much better than the Poisson model rootogram. There is slight underfitting/overfitting for counts 1 through 3, but otherwise it looks pretty good.
+
+```
+
+##7  Quasi-likelihood model
+```{r}
+model.qv<- glm(resp ~ race, data=victim, family = quasipoisson)
+summary(model.qv)
+anova(model.qv,model.v)
+```
+
+##8. Discuss all results
+```{r}
+round(data.frame(Po=coef(model.v),
+                 NB=coef(model.v.nb),
+                 QL=coef(model.qv),
+                 se.Po=summary(model.v)$coefficients[, 2], 
+                 se.NB=summary(model.v.nb)$coefficients[, 2],
+                 se.QL=summary(model.qv)$coefficients[, 2]),3)
+
+#mean & variance for observation
+m_obs<-tapply(victim$resp, victim$race, mean)
+v_obs<-tapply(victim$resp, victim$race, var)
+#mean & variance for quasi-likelihood
+m_qp <- unique(exp(predict(model.qv)))
+v_qp <- c(m_qp[1]*summary(model.qv)$dispersion, m_qp[2]*summary(model.qv)$dispersion) 
+#variance compare
+var <- data.frame(v_obs, v_nb, v_qp)
+rownames(var) <- c("black", "white")
+var
+
+##Plotting mean variance relationship
+plot(m_obs,v_obs, xlab="Mean", ylab="Variance", main="Mean Variance Relationship", ylim=c(0,1.5), xlim = c(0,1.5))
+x<- seq(0.092, 221,0.02)
+lines(x, x*summary(model.qv)$dispersion, lty="dashed") # quasi likelihood
+lines(x,x*(1+x/model.v.nb$theta)) # negative binomial
+legend("topleft", lty=c("dashed", "solid"), legend=c("Q. Poisson", "Neg Binom."), inset=0.6)
+
+```
+Parameter estimates: identical.    
+Standard errors: larger for ql and nb.   
+Negative Binomial: more fit for mean-variance relationship
