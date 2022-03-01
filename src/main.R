@@ -11,15 +11,26 @@ set.seed(1234)
 
 ## data and summary
 
-save_tex <- function(df, caption, label, filename, first_italic = T, dir = "output") {
+save_tex <- function(df, caption, label, filename, first_italic = T, dir = "output", add_layers = identity, col_names = NA) {
   filepath <- file.path(dir, sprintf("%s.tex", filename))
+  add_layers <- rlang::as_function(add_layers)
+  
+  if (!all(is.na(col_names))) {
+    assertthat::assert_that(length(col_names) == ncol(df))
+  }
   
   df |> 
-    kable(digits = 2, format = "latex", caption = caption, label = label) |>
+    kable(
+      digits = 2, 
+      format = "latex", 
+      caption = caption, 
+      label = label,
+      col.names = col_names
+    ) |>
     kable_styling(position = "center", latex_options = "HOLD_position") |>
-    row_spec(0, bold = TRUE, background = "#ffd966") |>
-    column_spec(1, italic = first_italic, border_left = T) |>
-    column_spec(ncol(df), border_right = T) |>
+    row_spec(0, hline_after = T) |>
+    column_spec(1, italic = first_italic) |> 
+    add_layers() |>
     write_file(filepath)
 }
 
@@ -36,24 +47,24 @@ df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp",
 
 df |> 
   group_by(race) |>
-  summarise(mu = mean(resp), sigma = sd(resp), count = n()) |> # %T>%
-  # save_tex(
-  #   caption = "Dataset summary statistics",
-  #   label = "dataset_summary",
-  #   filename = "dataset_summary"
-  # ) |> 
+  summarise(mu = mean(resp), sigma = sd(resp), count = n()) %T>%
+  save_tex(
+    caption = "Dataset summary statistics",
+    label = "dataset_summary",
+    filename = "dataset_summary"
+  ) |>
   kable(format = "pipe")
 
 df_crosscount <- df |> 
   group_by(race, resp) |>
   summarise(count = n())
 
-df_crosscount |> # %T>%
-  # save_tex(
-  #   caption = "Dataset cross frequencies",
-  #   label = "dataset_crosscount",
-  #   filename = "dataset_scrosscount"
-  # ) |> 
+df_crosscount %T>%
+  save_tex(
+    caption = "Dataset cross frequencies",
+    label = "dataset_crosscount",
+    filename = "dataset_scrosscount"
+  ) |>
   kable(format = "pipe")
 
 ## poisson reg
@@ -80,12 +91,17 @@ df_crosscount |>
   mutate(
     black_pred = dpois(resp, lambda = fitted_means[1]) * sum(df$race =="black"),
     white_pred = dpois(resp, lambda = fitted_means[1]) * sum(df$race =="white"),
-  ) |> # %T>%
-  # save_tex(
-  #   caption = "Observed vs predicted counts",
-  #   label = "obs_vs_pred",
-  #   filename = "obs_vs_pred"
-  # ) |>
+  ) |> 
+  select(
+    resp, black, black_pred, white, white_pred
+  ) %T>%
+  save_tex(
+    caption = "Observed vs predicted counts",
+    label = "obs_vs_pred",
+    filename = "obs_vs_pred",
+    col_names = c("victims", "obs", "pred", "obs", "red"),
+    add_layers = ~ add_header_above(.x, c(" " = 1, "Black" = 2, "White" = 2))
+  ) |>
   kable(format = "pipe", digits = 2)
 
 ## deviance
@@ -106,7 +122,6 @@ countreg::rootogram(poisson_model)
 
 neg_bin_model <- glm.nb(resp ~ race, data = df)
 summary(neg_bin_model)
-
 
 ## fitted counts for Negative Binomial GLM
 
@@ -136,5 +151,5 @@ anova(poisson_model, neg_bin_model, quasilik_model)
 
 stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
 
-# stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex") |>
-#   capture.output(file = "output/stargazer_comparison.tex")
+stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex") |>
+  capture.output(file = "output/stargazer_comparison.tex")
