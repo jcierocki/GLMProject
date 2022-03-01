@@ -41,6 +41,16 @@ save_eps <- function(plotting_expr, filename, dir = "output") {
   dev.off()
 }
 
+save_summary <- function(model, filename, dir = "output") {
+  filepath <- file.path(dir, sprintf("%s.txt", filename))
+  captured_output <- summary(poisson_model) |> print() |> capture.output()
+  
+  captured_output[5:length(captured_output)] |> 
+    write_lines(filepath)
+}
+
+####
+
 df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp", "race")) |>
   select(-index) |>
   mutate(race = as.factor(str_remove_all(race, '"')))
@@ -71,6 +81,8 @@ df_crosscount %T>%
 
 poisson_model <- glm(resp ~ race, family = "poisson", data = df)
 summary(poisson_model)
+
+save_summary(poisson, "poisson_summary")
 
 ##
 

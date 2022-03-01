@@ -1,0 +1,19 @@
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-1.0218  -0.4295  -0.4295  -0.4295   6.1874  
+
+Coefficients:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  -0.6501     0.1098  -5.922 3.17e-09 ***
+racewhite    -1.7331     0.1466 -11.825  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 962.80  on 1307  degrees of freedom
+Residual deviance: 844.71  on 1306  degrees of freedom
+AIC: 1122
+
+Number of Fisher Scoring iterations: 6
+
