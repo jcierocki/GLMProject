@@ -12,7 +12,7 @@ set.seed(1234)
 
 ## data and summary
 
-save_table_tex <- function(df, caption, label, filename, first_italic = T, dir = "output", add_layers = identity, col_names = NA) {
+save_table_tex <- function(df, caption, label, filename, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
   filepath <- file.path(dir, sprintf("%s.tex", filename))
   add_layers <- rlang::as_function(add_layers)
   
@@ -22,7 +22,7 @@ save_table_tex <- function(df, caption, label, filename, first_italic = T, dir =
   
   df |> 
     kable(
-      digits = 2, 
+      digits = digits, 
       format = "latex", 
       caption = caption, 
       label = label,
@@ -48,7 +48,8 @@ save_output <- function(expr, filename, dir = "output") {
   filepath <- file.path(dir, sprintf("%s.txt", filename))
   captured_output <- capture.output(expr) %T>% cat(sep = "\n")
   
-  captured_output[5:length(captured_output)] |> 
+  # captured_output[5:length(captured_output)] |> 
+  captured_output |>
     write_lines(filepath)
 }
 
@@ -148,16 +149,55 @@ sim_resid_poisson <- poisson_model |>
 save_last_plot_eps("poisson_resid_diag_dharma")
 
 sim_resid_poisson |> 
-  testOutliers(type = "bootstrap", nBoot = 100) |>
+  testOutliers(type = "bootstrap", nBoot = 100) |> 
   save_output("poisson_resid_outlier_test")
 
 save_last_plot_eps("poisson_resid_outlier_test_plot")
 
+sim_resid_poisson |> 
+  testDispersion() |> 
+  save_output("poisson_resid_dispersion_test")
+
+save_last_plot_eps("poisson_resid_dispersion_test_plot")
+
+sim_resid_poisson |> 
+  testUniformity(plot = F) |>
+  save_output("poisson_resid_uniformity_test")
+
+## tests agregated
+
+bind_rows(
+  sum(residuals(poisson_model, type = "pearson")^2) %>% tibble(
+    statistic = .,
+    pval = pchisq(., df = poisson_model$df.residual, lower.tail = F)
+  ),
+  anova(poisson_model, test = "Chisq")["race", c("Resid. Dev", "Pr(>Chi)")] |> 
+    set_names(c("statistic", "pval")),
+  car::Anova(poisson_model, test = "LR", type = 3)["race", c("LR Chisq", "Pr(>Chisq)")] |> 
+    set_names(c("statistic", "pval")),
+  car::Anova(poisson_model, test = "Wald", type = 3)["race", c("Chisq", "Pr(>Chisq)")] |> 
+    set_names(c("statistic", "pval")),
+  testOutliers(sim_resid_poisson, type = "bootstrap", nBoot = 100, plot = F)[c("estimate", "p.value")] |> 
+    set_names(c("statistic", "pval")),
+  testDispersion(sim_resid_poisson, plot = F)[c("statistic", "p.value")] |> 
+    set_names(c("statistic", "pval")),
+  testUniformity(sim_resid_poisson, plot = F)[c("statistic", "p.value")] |> 
+    set_names(c("statistic", "pval"))
+) |>
+  mutate(
+    test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity"),
+    .before = 1
+  ) %T>% 
+  save_table_tex(
+    "Poisson regression test",
+    "poisson_reg_tests",
+    "poisson_reg_tests"
+  ) |>
+  kable(format = "pipe", digits = 4)
+
 ## rootogram
 
-countreg::rootogram(poisson_model)
-
-
+countreg::rootogram(poisson_model, main = "Poisson regression", ylab = "Square root of frequency")
 save_last_plot_eps("rootgram_poisson")
 
 ## negative binomial model
