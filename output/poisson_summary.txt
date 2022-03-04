@@ -1,3 +1,7 @@
+
+Call:
+glm(formula = resp ~ race, family = "poisson", data = df)
+
 Deviance Residuals: 
     Min       1Q   Median       3Q      Max  
 -1.0218  -0.4295  -0.4295  -0.4295   6.1874  

@@ -4,6 +4,7 @@ require(kableExtra)
 require(magrittr)
 require(stargazer)
 require(MASS, exclude = "select")
+require(DHARMa)
 
 rm(list = ls())
 
@@ -11,7 +12,7 @@ set.seed(1234)
 
 ## data and summary
 
-save_tex <- function(df, caption, label, filename, first_italic = T, dir = "output", add_layers = identity, col_names = NA) {
+save_table_tex <- function(df, caption, label, filename, first_italic = T, dir = "output", add_layers = identity, col_names = NA) {
   filepath <- file.path(dir, sprintf("%s.tex", filename))
   add_layers <- rlang::as_function(add_layers)
   
@@ -34,16 +35,18 @@ save_tex <- function(df, caption, label, filename, first_italic = T, dir = "outp
     write_file(filepath)
 }
 
-save_eps <- function(plotting_expr, filename, dir = "output") {
+save_last_plot_eps <- function(filename, dir = "output") {
+  captured_plot <- recordPlot()
+
   setEPS()
   file.path(dir, sprintf("%s.eps", filename)) |> postscript()
-  rlang::enquo(plotting_expr) |> rlang::eval_tidy()
+  replayPlot(captured_plot)
   dev.off()
 }
 
-save_summary <- function(model, filename, dir = "output") {
+save_output <- function(expr, filename, dir = "output") {
   filepath <- file.path(dir, sprintf("%s.txt", filename))
-  captured_output <- summary(poisson_model) |> print() |> capture.output()
+  captured_output <- capture.output(expr) %T>% cat(sep = "\n")
   
   captured_output[5:length(captured_output)] |> 
     write_lines(filepath)
@@ -58,7 +61,7 @@ df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp",
 df |> 
   group_by(race) |>
   summarise(mu = mean(resp), sigma = sd(resp), count = n()) %T>%
-  save_tex(
+  save_table_tex(
     caption = "Dataset summary statistics",
     label = "dataset_summary",
     filename = "dataset_summary"
@@ -70,7 +73,7 @@ df_crosscount <- df |>
   summarise(count = n())
 
 df_crosscount %T>%
-  save_tex(
+  save_table_tex(
     caption = "Dataset cross frequencies",
     label = "dataset_crosscount",
     filename = "dataset_scrosscount"
@@ -80,9 +83,8 @@ df_crosscount %T>%
 ## poisson reg
 
 poisson_model <- glm(resp ~ race, family = "poisson", data = df)
-summary(poisson_model)
-
-save_summary(poisson, "poisson_summary")
+summary(poisson_model) |>
+  save_output("poisson_summary")
 
 ##
 
@@ -107,7 +109,7 @@ df_crosscount |>
   select(
     resp, black, black_pred, white, white_pred
   ) %T>%
-  save_tex(
+  save_table_tex(
     caption = "Observed vs predicted counts",
     label = "obs_vs_pred",
     filename = "obs_vs_pred",
@@ -116,19 +118,47 @@ df_crosscount |>
   ) |>
   kable(format = "pipe", digits = 2)
 
-## deviance
+## tests
 
-sum(residuals(poisson_model, type = "pearson")^2) |> pchisq(df = poisson_model$df.residual, lower.tail = F)
-poisson_model$deviance |> pchisq(df = poisson_model$df.residual, lower.tail = F)
-# anova(poisson_model, test = "Chisq")
+# poisson_model$df.residual
+# summary(poisson_model)$df.residual
+# dim(df)[1] - length(coef(poisson_model))
+
+# poisson_model$deviance
+# summary(poisson_model)$deviance
+
+sum(residuals(poisson_model, type = "pearson")^2) %>% 
+  c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
+  set_names(c("test statistic", "p-value"))
+
+poisson_model$deviance %>% 
+  c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
+  set_names(c("test statistic", "p-value"))
+
+anova(poisson_model, test = "Chisq")
+
 poisson_model |> car::Anova(test = "LR", type = 3)
 poisson_model |> car::Anova(test = "Wald", type = 3)
+
+## DHARMa
+
+sim_resid_poisson <- poisson_model |> 
+  simulateResiduals(n = 1000, plot = T, seed = 1234)
+  
+save_last_plot_eps("poisson_resid_diag_dharma")
+
+sim_resid_poisson |> 
+  testOutliers(type = "bootstrap", nBoot = 100) |>
+  save_output("poisson_resid_outlier_test")
+
+save_last_plot_eps("poisson_resid_outlier_test_plot")
 
 ## rootogram
 
 countreg::rootogram(poisson_model)
-# countreg::rootogram(poisson_model) |>
-#   save_eps("rootgram_poisson")
+
+
+save_last_plot_eps("rootgram_poisson")
 
 ## negative binomial model
 
