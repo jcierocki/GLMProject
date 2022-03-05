@@ -150,9 +150,14 @@ df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp",
   select(-index) |>
   mutate(race = as.factor(str_remove_all(race, '"')))
 
-df |> 
-  group_by(race) |>
-  summarise(mu = mean(resp), sigma = sd(resp), count = n()) %T>%
+bind_rows(
+  df |> 
+    group_by(race) |>
+    summarise(mu = mean(resp), sigma = sd(resp), count = n()),
+  df |> 
+    summarise(mu = mean(resp), sigma = sd(resp), count = n()) |>
+    mutate(race = "total", .before = 1)
+) %T>%
   save_table_tex(
     caption = "Dataset summary statistics",
     label = "dataset_summary",
