@@ -12,7 +12,10 @@ library(countreg)
 library(MASS)
 library(magrittr)
 
-victim<-as.data.frame(read.table(file.choose(),header = TRUE))
+# victim<-as.data.frame(read.table("../data/16-victim.txt",header = TRUE))
+victim <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp", "race")) |>
+  select(-index) |>
+  mutate(race = as.factor(str_remove_all(race, '"')))
 ```
 
 ##1 fit the model

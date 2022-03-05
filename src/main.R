@@ -10,9 +10,13 @@ rm(list = ls())
 
 set.seed(1234)
 
-## data and summary
+## functions
 
-save_table_tex <- function(df, caption, label, filename, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
+save_table_tex <- function(df, caption, label, filename = NA, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
+  if (is.na(filename)) {
+    filename <- label
+  }
+  
   filepath <- file.path(dir, sprintf("%s.tex", filename))
   add_layers <- rlang::as_function(add_layers)
   
@@ -53,7 +57,7 @@ save_output <- function(expr, filename, dir = "output") {
     write_lines(filepath)
 }
 
-glm_tests_table <- function(glm_model, sim_resid = NULL) {
+glm_tests_combined <- function(glm_model, sim_resid = NULL) {
   if (is.null(sim_resid)) {
     sim_resid <- tryCatch({
       glm_model |> simulateResiduals(n = 1000, plot = F, seed = 1234)
@@ -81,26 +85,38 @@ glm_tests_table <- function(glm_model, sim_resid = NULL) {
       testDispersion(sim_resid, plot = F)[c("statistic", "p.value")] |> 
         set_names(c("statistic", "pval")),
       testUniformity(sim_resid, plot = F)[c("statistic", "p.value")] |> 
+        set_names(c("statistic", "pval")),
+      testZeroInflation(sim_resid, plot = F)[c("statistic", "p.value")] |> 
         set_names(c("statistic", "pval"))
     )
   } else {
     tests_df <- bind_rows(
       tests_df,
       tibble(
-        statistic = rep(NA, 3),
-        pval = rep(NA, 3)
+        statistic = rep(NA, 4),
+        pval = rep(NA, 4)
       )
     )
   }
   
   tests_df |>
     mutate(
-      test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity"),
+      test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity", "Zero Inflation"),
       .before = 1
     )
 }
 
-####
+glm_RR_table <- function(glm_model) { ## only poisson supported now
+  estimates <- stats::coef(glm_model)
+  
+  bind_cols(
+    parameter = names(estimates),
+    RR = estimates,
+    stats::confint(glm_model)
+  ) |> mutate_if(is.numeric, exp)
+}
+
+## data and summary
 
 df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp", "race")) |>
   select(-index) |>
@@ -133,6 +149,13 @@ df_crosscount %T>%
 poisson_model <- glm(resp ~ race, family = "poisson", data = df)
 summary(poisson_model) |>
   save_output("poisson_summary")
+
+glm_RR_table(poisson_model) %T>%
+  save_table_tex(
+    "Poisson Regression Risk Ratios",
+    "poisson_reg_RR"
+  ) |> 
+  kable(format = "pipe", digits = 2)
 
 ##
 
@@ -211,6 +234,12 @@ sim_resid_poisson |>
   testUniformity(plot = F) |>
   save_output("poisson_resid_uniformity_test")
 
+sim_resid_poisson |> 
+  testZeroInflation() |> 
+  save_output("poisson_resid_zero_inflation_test")
+
+save_last_plot_eps("poisson_resid_zero_inflation_test_plot")
+
 ## tests agregated
 
 glm_tests_table(poisson_model, sim_resid_poisson) %T>% 
@@ -230,6 +259,13 @@ save_last_plot_eps("rootgram_poisson")
 
 neg_bin_model <- glm.nb(resp ~ race, data = df)
 summary(neg_bin_model)
+
+glm_RR_table(neg_bin_model) %T>%
+  save_table_tex(
+    "Negative Binomial Regression Risk Ratios",
+    "neg_bin_reg_RR"
+  ) |> 
+  kable(format = "pipe", digits = 2)
 
 glm_tests_table(neg_bin_model) %T>% 
   save_table_tex(
@@ -261,10 +297,16 @@ fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta)
 quasilik_model <- glm(resp ~ race, data = df, family = quasipoisson)
 summary(quasilik_model)
 
+glm_RR_table(quasilik_model) %T>%
+  save_table_tex(
+    "Quasi Poisson Regression Risk Ratios",
+    "quasipoisson_reg_RR"
+  ) |> 
+  kable(format = "pipe", digits = 2)
+
 glm_tests_table(quasilik_model) %T>% 
   save_table_tex(
     "Quasi Poisson regression test",
-    "quasipoisson_reg_tests",
     "quasipoisson_reg_tests"
   ) |>
   kable(format = "pipe", digits = 4)
