@@ -10,10 +10,12 @@ rm(list = ls())
 
 set.seed(1234)
 
+options(knitr.table.format = "pipe", digits = 4)
+
 ## functions
 
-save_table_tex <- function(df, caption, label, filename = NA, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
-  if (is.na(filename)) {
+save_table_tex <- function(df, caption, label, filename = NULL, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
+  if (is.null(filename)) {
     filename <- label
   }
   
@@ -33,10 +35,10 @@ save_table_tex <- function(df, caption, label, filename = NA, first_italic = T, 
       col.names = col_names
     ) |>
     kable_styling(position = "center", latex_options = "HOLD_position") |>
-    row_spec(0, hline_after = T) |>
+    # row_spec(0, hline_after = T) |>
     column_spec(1, italic = first_italic) |> 
     add_layers() |>
-    write_file(filepath)
+    save_kable(filepath)
 }
 
 save_last_plot_eps <- function(filename, dir = "output") {
@@ -57,13 +59,7 @@ save_output <- function(expr, filename, dir = "output") {
     write_lines(filepath)
 }
 
-glm_tests_combined <- function(glm_model, sim_resid = NULL) {
-  if (is.null(sim_resid)) {
-    sim_resid <- tryCatch({
-      glm_model |> simulateResiduals(n = 1000, plot = F, seed = 1234)
-    }, error = function(e) NULL)
-  }
-  
+glm_tests_combined <- function(glm_model, sim_resid = NULL, save_plots_model_name = NULL) {
   tests_df <- bind_rows(
     sum(residuals(glm_model, type = "pearson")^2) %>% tibble(
       statistic = .,
@@ -75,35 +71,66 @@ glm_tests_combined <- function(glm_model, sim_resid = NULL) {
       set_names(c("statistic", "pval")),
     car::Anova(glm_model, test = "Wald", type = 3)["race", c("Chisq", "Pr(>Chisq)")] |> 
       set_names(c("statistic", "pval")),
-  )
+  ) |>
+    mutate(
+      test = c("Pearson", "Deviance", "LR", "Wald"),
+      .before = 1
+    )
+  
+  save_dharma_plots <- !is.null(save_plots_model_name)
+  
+  if (is.null(sim_resid)) {
+    sim_resid <- tryCatch({
+      glm_model |> simulateResiduals(n = 1000, plot = save_dharma_plots, seed = 1234)
+    }, error = function(e) NULL)
+  }
   
   if (!is.null(sim_resid)) {
-    tests_df <- bind_rows(
-      tests_df,
-      testOutliers(sim_resid, type = "bootstrap", nBoot = 100, plot = F)[c("estimate", "p.value")] |> 
-        set_names(c("statistic", "pval")),
-      testDispersion(sim_resid, plot = F)[c("statistic", "p.value")] |> 
-        set_names(c("statistic", "pval")),
-      testUniformity(sim_resid, plot = F)[c("statistic", "p.value")] |> 
-        set_names(c("statistic", "pval")),
-      testZeroInflation(sim_resid, plot = F)[c("statistic", "p.value")] |> 
-        set_names(c("statistic", "pval"))
+    save_plots_model_name <- save_plots_model_name |>
+      str_to_lower() |> 
+      str_remove_all("[:punct:]") |> 
+      str_replace_all("\\s", "_")
+    
+    sprintf("%s_reg_simulated_residuals_plot", save_plots_model_name) |> 
+      save_last_plot_eps()
+    
+    dharma_test_funs <- list(
+      "Bootstrap Outliers" = ~ testOutliers(.x, type = "bootstrap", nBoot = 100, plot = save_dharma_plots)[c("estimate", "p.value")], 
+      "Dispersion" = ~ testDispersion(.x, plot = save_dharma_plots)[c("statistic", "p.value")], 
+      "K-S Uniformity" = ~ testUniformity(.x, plot = save_dharma_plots)[c("statistic", "p.value")], 
+      "Zero Inflation" = ~ testZeroInflation(.x, plot = save_dharma_plots)[c("statistic", "p.value")]
     )
-  } else {
+    
+    dharma_plots_filenames = names(dharma_test_funs) |>
+      str_to_lower() |> 
+      str_remove_all("[:punct:]") |> 
+      str_replace_all("\\s", "_") %>%
+      sprintf("%s_reg_%s_plot", save_plots_model_name, .)
+    
+    dharma_tests_results_df <- dharma_test_funs |> 
+      set_names(dharma_plots_filenames) |>
+      imap_dfr(~ {
+        out <- rlang::as_function(.x)(sim_resid) |>
+          set_names(c("statistic", "pval"))
+        
+        if (save_dharma_plots) {
+          save_last_plot_eps(.y)
+        }
+        
+        out
+      }) |>
+        mutate(
+          test = names(dharma_test_funs),
+          .before = 1
+        )
+    
     tests_df <- bind_rows(
       tests_df,
-      tibble(
-        statistic = rep(NA, 4),
-        pval = rep(NA, 4)
-      )
+      dharma_tests_results_df
     )
   }
   
-  tests_df |>
-    mutate(
-      test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity", "Zero Inflation"),
-      .before = 1
-    )
+  tests_df
 }
 
 glm_RR_table <- function(glm_model) { ## only poisson supported now
@@ -198,54 +225,24 @@ df_crosscount |>
 # poisson_model$deviance
 # summary(poisson_model)$deviance
 
-sum(residuals(poisson_model, type = "pearson")^2) %>% 
-  c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
-  set_names(c("test statistic", "p-value"))
+# sum(residuals(poisson_model, type = "pearson")^2) %>% 
+#   c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
+#   set_names(c("test statistic", "p-value"))
+# 
+# poisson_model$deviance %>% 
+#   c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
+#   set_names(c("test statistic", "p-value"))
+# 
+# anova(poisson_model, test = "Chisq")
+# 
+# poisson_model |> car::Anova(test = "LR", type = 3)
+# poisson_model |> car::Anova(test = "Wald", type = 3)
 
-poisson_model$deviance %>% 
-  c(., pchisq(., df = poisson_model$df.residual, lower.tail = F)) |>
-  set_names(c("test statistic", "p-value"))
+## tests inc. DHARMa
 
-anova(poisson_model, test = "Chisq")
-
-poisson_model |> car::Anova(test = "LR", type = 3)
-poisson_model |> car::Anova(test = "Wald", type = 3)
-
-## DHARMa
-
-sim_resid_poisson <- poisson_model |> 
-  simulateResiduals(n = 1000, plot = T, seed = 1234)
-  
-save_last_plot_eps("poisson_resid_diag_dharma")
-
-sim_resid_poisson |> 
-  testOutliers(type = "bootstrap", nBoot = 100) |> 
-  save_output("poisson_resid_outlier_test")
-
-save_last_plot_eps("poisson_resid_outlier_test_plot")
-
-sim_resid_poisson |> 
-  testDispersion() |> 
-  save_output("poisson_resid_dispersion_test")
-
-save_last_plot_eps("poisson_resid_dispersion_test_plot")
-
-sim_resid_poisson |> 
-  testUniformity(plot = F) |>
-  save_output("poisson_resid_uniformity_test")
-
-sim_resid_poisson |> 
-  testZeroInflation() |> 
-  save_output("poisson_resid_zero_inflation_test")
-
-save_last_plot_eps("poisson_resid_zero_inflation_test_plot")
-
-## tests agregated
-
-glm_tests_table(poisson_model, sim_resid_poisson) %T>% 
+glm_tests_combined(poisson_model, save_plots_model_name = "poisson") %T>%
   save_table_tex(
-    "Poisson regression test",
-    "poisson_reg_tests",
+    "Poisson regression tests results",
     "poisson_reg_tests"
   ) |>
   kable(format = "pipe", digits = 4)
@@ -267,7 +264,7 @@ glm_RR_table(neg_bin_model) %T>%
   ) |> 
   kable(format = "pipe", digits = 2)
 
-glm_tests_table(neg_bin_model) %T>% 
+glm_tests_combined(neg_bin_model, save_plots_model_name = "negative binomial") %T>% 
   save_table_tex(
     "Negative Binomial regression test",
     "negbin_reg_tests",
@@ -302,14 +299,14 @@ glm_RR_table(quasilik_model) %T>%
     "Quasi Poisson Regression Risk Ratios",
     "quasipoisson_reg_RR"
   ) |> 
-  kable(format = "pipe", digits = 2)
+  kable(digits = 2)
 
-glm_tests_table(quasilik_model) %T>% 
+glm_tests_combined(quasilik_model, save_plots_model_name = "quasi poisson") %T>% 
   save_table_tex(
     "Quasi Poisson regression test",
     "quasipoisson_reg_tests"
   ) |>
-  kable(format = "pipe", digits = 4)
+  kable()
 
 ## model comparison
 
