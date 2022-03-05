@@ -27,14 +27,15 @@ save_table_tex <- function(df, caption, label, filename = NULL, first_italic = T
   }
   
   df |> 
-    kable(
+    kbl(
       digits = digits, 
       format = "latex", 
       caption = caption, 
       label = label,
-      col.names = col_names
+      col.names = col_names,
+      booktabs = T
     ) |>
-    kable_styling(position = "center", latex_options = "HOLD_position") |>
+    kable_styling(position = "center", latex_options = c("striped")) |>
     # row_spec(0, hline_after = T) |>
     column_spec(1, italic = first_italic) |> 
     add_layers() |>
@@ -271,6 +272,9 @@ glm_tests_combined(neg_bin_model, save_plots_model_name = "negative binomial") %
     "negbin_reg_tests"
   ) |>
   kable(format = "pipe", digits = 4)
+
+countreg::rootogram(neg_bin_model, main = "Negative Binomial regression", ylab = "Square root of frequency")
+save_last_plot_eps("rootgram_negbin")
 
 ## fitted counts for Negative Binomial GLM
 
