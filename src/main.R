@@ -53,6 +53,53 @@ save_output <- function(expr, filename, dir = "output") {
     write_lines(filepath)
 }
 
+glm_tests_table <- function(glm_model, sim_resid = NULL) {
+  if (is.null(sim_resid)) {
+    sim_resid <- tryCatch({
+      glm_model |> simulateResiduals(n = 1000, plot = F, seed = 1234)
+    }, error = function(e) NULL)
+  }
+  
+  tests_df <- bind_rows(
+    sum(residuals(glm_model, type = "pearson")^2) %>% tibble(
+      statistic = .,
+      pval = pchisq(., df = glm_model$df.residual, lower.tail = F)
+    ),
+    anova(glm_model, test = "Chisq")["race", c("Resid. Dev", "Pr(>Chi)")] |> 
+      set_names(c("statistic", "pval")),
+    car::Anova(glm_model, test = "LR", type = 3)["race", c("LR Chisq", "Pr(>Chisq)")] |> 
+      set_names(c("statistic", "pval")),
+    car::Anova(glm_model, test = "Wald", type = 3)["race", c("Chisq", "Pr(>Chisq)")] |> 
+      set_names(c("statistic", "pval")),
+  )
+  
+  if (!is.null(sim_resid)) {
+    tests_df <- bind_rows(
+      tests_df,
+      testOutliers(sim_resid, type = "bootstrap", nBoot = 100, plot = F)[c("estimate", "p.value")] |> 
+        set_names(c("statistic", "pval")),
+      testDispersion(sim_resid, plot = F)[c("statistic", "p.value")] |> 
+        set_names(c("statistic", "pval")),
+      testUniformity(sim_resid, plot = F)[c("statistic", "p.value")] |> 
+        set_names(c("statistic", "pval"))
+    )
+  } else {
+    tests_df <- bind_rows(
+      tests_df,
+      tibble(
+        statistic = rep(NA, 3),
+        pval = rep(NA, 3)
+      )
+    )
+  }
+  
+  tests_df |>
+    mutate(
+      test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity"),
+      .before = 1
+    )
+}
+
 ####
 
 df <- read_table("data/16-victim.txt", skip = 21, col_names = c("index", "resp", "race")) |>
@@ -166,28 +213,7 @@ sim_resid_poisson |>
 
 ## tests agregated
 
-bind_rows(
-  sum(residuals(poisson_model, type = "pearson")^2) %>% tibble(
-    statistic = .,
-    pval = pchisq(., df = poisson_model$df.residual, lower.tail = F)
-  ),
-  anova(poisson_model, test = "Chisq")["race", c("Resid. Dev", "Pr(>Chi)")] |> 
-    set_names(c("statistic", "pval")),
-  car::Anova(poisson_model, test = "LR", type = 3)["race", c("LR Chisq", "Pr(>Chisq)")] |> 
-    set_names(c("statistic", "pval")),
-  car::Anova(poisson_model, test = "Wald", type = 3)["race", c("Chisq", "Pr(>Chisq)")] |> 
-    set_names(c("statistic", "pval")),
-  testOutliers(sim_resid_poisson, type = "bootstrap", nBoot = 100, plot = F)[c("estimate", "p.value")] |> 
-    set_names(c("statistic", "pval")),
-  testDispersion(sim_resid_poisson, plot = F)[c("statistic", "p.value")] |> 
-    set_names(c("statistic", "pval")),
-  testUniformity(sim_resid_poisson, plot = F)[c("statistic", "p.value")] |> 
-    set_names(c("statistic", "pval"))
-) |>
-  mutate(
-    test = c("Pearson", "Deviance", "LR", "Wald", "Bootstrap Outliers", "Dispersion", "K-S Uniformity"),
-    .before = 1
-  ) %T>% 
+glm_tests_table(poisson_model, sim_resid_poisson) %T>% 
   save_table_tex(
     "Poisson regression test",
     "poisson_reg_tests",
@@ -204,6 +230,14 @@ save_last_plot_eps("rootgram_poisson")
 
 neg_bin_model <- glm.nb(resp ~ race, data = df)
 summary(neg_bin_model)
+
+glm_tests_table(neg_bin_model) %T>% 
+  save_table_tex(
+    "Negative Binomial regression test",
+    "negbin_reg_tests",
+    "negbin_reg_tests"
+  ) |>
+  kable(format = "pipe", digits = 4)
 
 ## fitted counts for Negative Binomial GLM
 
@@ -227,9 +261,18 @@ fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta)
 quasilik_model <- glm(resp ~ race, data = df, family = quasipoisson)
 summary(quasilik_model)
 
+glm_tests_table(quasilik_model) %T>% 
+  save_table_tex(
+    "Quasi Poisson regression test",
+    "quasipoisson_reg_tests",
+    "quasipoisson_reg_tests"
+  ) |>
+  kable(format = "pipe", digits = 4)
+
 ## model comparison
 
-anova(poisson_model, neg_bin_model, quasilik_model)
+anova(poisson_model, neg_bin_model, quasilik_model) |>
+  save_output("anova_model_comparison")
 
 stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
 

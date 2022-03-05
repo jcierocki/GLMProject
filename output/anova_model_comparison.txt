@@ -1,0 +1,9 @@
+Analysis of Deviance Table
+
+Model 1: resp ~ race
+Model 2: resp ~ race
+Model 3: resp ~ race
+  Resid. Df Resid. Dev Df Deviance
+1      1306     844.71            
+2      1306     412.60  0   432.11
+3      1306     844.71  0  -432.11
