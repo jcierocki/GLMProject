@@ -33,9 +33,10 @@ save_table_tex <- function(df, caption, label, filename = NULL, first_italic = T
       caption = caption, 
       label = label,
       col.names = col_names,
-      booktabs = T
+      booktabs = T,
+      position = "ht"
     ) |>
-    kable_styling(position = "center", latex_options = c("striped")) |>
+    kable_styling(position = "center", latex_options = ifelse(nrow(df) > 3, "striped", "basic")) |>
     # row_spec(0, hline_after = T) |>
     column_spec(1, italic = first_italic) |> 
     add_layers() |>
