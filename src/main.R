@@ -46,7 +46,8 @@ save_last_plot_eps <- function(filename, dir = "output") {
   captured_plot <- recordPlot()
 
   setEPS()
-  file.path(dir, sprintf("%s.eps", filename)) |> postscript()
+  file.path(dir, sprintf("%s.eps", filename)) |> 
+    postscript(width = 7, height = 4)
   replayPlot(captured_plot)
   dev.off()
 }

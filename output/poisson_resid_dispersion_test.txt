@@ -1,7 +1,0 @@
-
-	DHARMa nonparametric dispersion test via sd of residuals fitted vs. simulated
-
-data:  simulationOutput
-dispersion = 1.8971, p-value < 2.2e-16
-alternative hypothesis: two.sided
-

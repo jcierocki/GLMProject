@@ -1,7 +1,0 @@
-
-	One-sample Kolmogorov-Smirnov test
-
-data:  simulationOutput$scaledResiduals
-D = 0.018493, p-value = 0.7623
-alternative hypothesis: two-sided
-
