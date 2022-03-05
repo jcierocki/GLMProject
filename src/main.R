@@ -321,3 +321,26 @@ stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
 
 stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex") |>
   capture.output(file = "output/stargazer_comparison.tex")
+
+list(
+  "Poisson" = poisson_model,
+  "Negative Binomial" = neg_bin_model
+) |> 
+  imap_dfr(
+    ~ DescTools::PseudoR2(
+      .x,
+      which = c(
+        "McFadden",
+        "McFaddenAdj",
+        "CoxSnell",
+        "AIC",
+        "G2"
+      )
+    ) |> 
+      as.list() |> 
+      as_tibble() |>
+      mutate(model = .y, .before = 1)
+  ) |>
+  column_to_rownames("model") %T>%
+  save_table_tex("GoF and IC comparison", "gof_ic_comparison") |>
+  kable()
