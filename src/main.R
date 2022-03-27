@@ -14,7 +14,7 @@ options(knitr.table.format = "pipe", digits = 4)
 
 ## functions
 
-save_table_tex <- function(df, caption, label, filename = NULL, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
+save_table_tex <- function(df, caption, label, wraptable_width, filename = NULL, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
   if (is.null(filename)) {
     filename <- label
   }
@@ -26,17 +26,19 @@ save_table_tex <- function(df, caption, label, filename = NULL, first_italic = T
     assertthat::assert_that(length(col_names) == ncol(df))
   }
   
+  print(wraptable_width)
+  print(filepath)
+  
   df |> 
     kbl(
       digits = digits, 
       format = "latex", 
-      caption = caption, 
+      caption = str_to_sentence(caption), 
       label = label,
       col.names = col_names,
-      booktabs = T,
-      position = "ht"
+      booktabs = T
     ) |>
-    kable_styling(position = "center", latex_options = ifelse(nrow(df) > 3, "striped", "basic")) |>
+    kable_styling(position = "float_right", font_size = 9, latex_options = "basic", wraptable_width = wraptable_width) |>
     # row_spec(0, hline_after = T) |>
     column_spec(1, italic = first_italic) |> 
     add_layers() |>
@@ -160,9 +162,9 @@ bind_rows(
     mutate(race = "total", .before = 1)
 ) %T>%
   save_table_tex(
-    caption = "Dataset summary statistics",
+    caption = "Dataset Summary Statistics",
     label = "dataset_summary",
-    filename = "dataset_summary"
+    wraptable_width = "3in"
   ) |>
   kable(format = "pipe")
 
@@ -172,9 +174,9 @@ df_crosscount <- df |>
 
 df_crosscount %T>%
   save_table_tex(
-    caption = "Dataset cross frequencies",
-    label = "dataset_crosscount",
-    filename = "dataset_scrosscount"
+    "Dataset Cross Frequencies",
+    "dataset_crosscount",
+    "2in"
   ) |>
   kable(format = "pipe")
 
@@ -187,7 +189,8 @@ summary(poisson_model) |>
 glm_RR_table(poisson_model) %T>%
   save_table_tex(
     "Poisson Regression Risk Ratios",
-    "poisson_reg_RR"
+    "poisson_reg_RR",
+    "3.5in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
@@ -215,9 +218,9 @@ df_crosscount |>
     resp, black, black_pred, white, white_pred
   ) %T>%
   save_table_tex(
-    caption = "Observed vs predicted counts",
+    caption = "Observed vs Predicted Counts",
     label = "obs_vs_pred",
-    filename = "obs_vs_pred",
+    wraptable_width = "4in",
     col_names = c("victims", "obs", "pred", "obs", "red"),
     add_layers = ~ add_header_above(.x, c(" " = 1, "Black" = 2, "White" = 2))
   ) |>
@@ -249,8 +252,9 @@ df_crosscount |>
 
 glm_tests_combined(poisson_model, save_plots_model_name = "poisson") %T>%
   save_table_tex(
-    "Poisson regression tests results",
-    "poisson_reg_tests"
+    "Poisson Regression Tests Results",
+    "poisson_reg_tests",
+    "3.5in"
   ) |>
   kable(format = "pipe", digits = 4)
 
@@ -267,15 +271,16 @@ summary(neg_bin_model)
 glm_RR_table(neg_bin_model) %T>%
   save_table_tex(
     "Negative Binomial Regression Risk Ratios",
-    "neg_bin_reg_RR"
+    "neg_bin_reg_RR",
+    "3in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
 glm_tests_combined(neg_bin_model, save_plots_model_name = "negative binomial") %T>% 
   save_table_tex(
-    "Negative Binomial regression test",
+    "Negative Binomial Regression Test",
     "negbin_reg_tests",
-    "negbin_reg_tests"
+    "3.5in"
   ) |>
   kable(format = "pipe", digits = 4)
 
@@ -307,14 +312,16 @@ summary(quasilik_model)
 glm_RR_table(quasilik_model) %T>%
   save_table_tex(
     "Quasi Poisson Regression Risk Ratios",
-    "quasipoisson_reg_RR"
+    "quasipoisson_reg_RR",
+    "3in"
   ) |> 
   kable(digits = 2)
 
 glm_tests_combined(quasilik_model, save_plots_model_name = "quasi poisson") %T>% 
   save_table_tex(
     "Quasi Poisson regression test",
-    "quasipoisson_reg_tests"
+    "quasipoisson_reg_tests",
+    "3.5in"
   ) |>
   kable()
 
@@ -325,12 +332,12 @@ anova(poisson_model, neg_bin_model, quasilik_model) |>
 
 stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
 
-stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex") |>
+stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex", title = "Model comparison", font.size = "small") |>
   capture.output(file = "output/stargazer_comparison.tex")
 
 list(
   "Poisson" = poisson_model,
-  "Negative Binomial" = neg_bin_model
+  "Negative-Binomial" = neg_bin_model
 ) |> 
   imap_dfr(
     ~ DescTools::PseudoR2(
@@ -348,5 +355,5 @@ list(
       mutate(model = .y, .before = 1)
   ) |>
   column_to_rownames("model") %T>%
-  save_table_tex("GoF and IC comparison", "gof_ic_comparison") |>
+  save_table_tex("GoF and IC comparison", "gof_ic_comparison", "4in") |>
   kable()
