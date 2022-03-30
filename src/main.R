@@ -187,7 +187,7 @@ glm_RR_table(poisson_model) %T>%
   save_table_tex(
     "Poisson Regression Risk Ratios",
     "poisson_reg_RR",
-    "2in"
+    "2.5in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
@@ -269,7 +269,7 @@ glm_RR_table(neg_bin_model) %T>%
   save_table_tex(
     "Negative Binomial Regression Risk Ratios",
     "neg_bin_reg_RR",
-    "2in"
+    "2.5in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
@@ -310,7 +310,7 @@ glm_RR_table(quasilik_model) %T>%
   save_table_tex(
     "Quasi Poisson Regression Risk Ratios",
     "quasipoisson_reg_RR",
-    "2in"
+    "2.5in"
   ) |> 
   kable(digits = 2)
 
@@ -332,7 +332,7 @@ stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
 stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex", title = "Model comparison", font.size = "small") |>
   # capture.output(file = "output/stargazer_comparison.tex")
   capture.output() |> 
-  str_replace("^\\\\begin\\{table\\}\\[\\!htbp\\]", "\\\\begin\\{wraptable\\}\\{r\\}\\{4in\\}") |>
+  str_replace("^\\\\begin\\{table\\}\\[\\!htbp\\]", "\\\\begin\\{wraptable\\}\\{r\\}\\{4.5in\\}") |>
   str_replace("^\\\\end\\{table\\}", "\\\\end\\{wraptable\\}") |>
   write_lines("output/stargazer_comparison.tex")
 
