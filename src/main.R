@@ -14,7 +14,7 @@ options(knitr.table.format = "pipe", digits = 4)
 
 ## functions
 
-save_table_tex <- function(df, caption, label, wraptable_width, filename = NULL, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
+save_table_tex <- function(df, caption, label, wraptable_width = NULL, filename = NULL, first_italic = T, digits = 4, dir = "output", add_layers = identity, col_names = NA) {
   if (is.null(filename)) {
     filename <- label
   }
@@ -35,7 +35,12 @@ save_table_tex <- function(df, caption, label, wraptable_width, filename = NULL,
       col.names = col_names,
       booktabs = T
     ) |>
-    kable_styling(position = "float_right", font_size = 9, latex_options = "basic", wraptable_width = wraptable_width) |>
+    kable_styling(
+      position = ifelse(is.null(wraptable_width), "center", "float_right"), 
+      font_size = 9, 
+      latex_options = ifelse(is.null(wraptable_width), "hold_position", "basic"), 
+      wraptable_width = ifelse(is.null(wraptable_width), "0pt", wraptable_width)
+    ) |>
     # row_spec(0, hline_after = T) |>
     column_spec(1, italic = first_italic) |> 
     add_layers() |>
@@ -173,7 +178,7 @@ df_crosscount %T>%
   save_table_tex(
     "Dataset Cross Frequencies",
     "dataset_crosscount",
-    "1.5in"
+    wraptable_width = "1.5in"
   ) |>
   kable(format = "pipe")
 
@@ -187,7 +192,7 @@ glm_RR_table(poisson_model) %T>%
   save_table_tex(
     "Poisson Regression Risk Ratios",
     "poisson_reg_RR",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
@@ -217,7 +222,7 @@ df_crosscount |>
   save_table_tex(
     caption = "Observed vs Predicted Counts",
     label = "obs_vs_pred",
-    wraptable_width = "3in",
+    wraptable_width = NULL,
     col_names = c("victims", "obs", "pred", "obs", "red"),
     add_layers = ~ add_header_above(.x, c(" " = 1, "Black" = 2, "White" = 2))
   ) |>
@@ -251,7 +256,7 @@ glm_tests_combined(poisson_model, save_plots_model_name = "poisson") %T>%
   save_table_tex(
     "Poisson Regression Tests Results",
     "poisson_reg_tests",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |>
   kable(format = "pipe", digits = 4)
 
@@ -269,7 +274,7 @@ glm_RR_table(neg_bin_model) %T>%
   save_table_tex(
     "Negative Binomial Regression Risk Ratios",
     "neg_bin_reg_RR",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |> 
   kable(format = "pipe", digits = 2)
 
@@ -277,7 +282,7 @@ glm_tests_combined(neg_bin_model, save_plots_model_name = "negative binomial") %
   save_table_tex(
     "Negative Binomial Regression Test",
     "negbin_reg_tests",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |>
   kable(format = "pipe", digits = 4)
 
@@ -310,7 +315,7 @@ glm_RR_table(quasilik_model) %T>%
   save_table_tex(
     "Quasi Poisson Regression Risk Ratios",
     "quasipoisson_reg_RR",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |> 
   kable(digits = 2)
 
@@ -318,7 +323,7 @@ glm_tests_combined(quasilik_model, save_plots_model_name = "quasi poisson") %T>%
   save_table_tex(
     "Quasi Poisson regression test",
     "quasipoisson_reg_tests",
-    "2.5in"
+    wraptable_width = "2.5in"
   ) |>
   kable()
 
