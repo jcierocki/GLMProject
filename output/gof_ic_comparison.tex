@@ -3,12 +3,13 @@
 \caption{\label{tab:gof_ic_comparison}Gof and ic comparison}
 \centering
 \fontsize{9}{11}\selectfont
-\begin{tabular}[t]{>{}lrrrrr}
+\begin{tabular}[t]{>{}lrrrrrr}
 \toprule
-  & McFadden & McFaddenAdj & CoxSnell & AIC & G2\\
+  & McFadden & McFaddenAdj & CoxSnell & AIC & G2 & Deviance explained\\
 \midrule
-\em{Poisson} & 0.0955 & 0.0923 & 0.0863 & 1122 & 118.09\\
-\em{Negative-Binomial} & 0.0492 & 0.0454 & 0.0387 & 1002 & 51.56\\
+\em{Poisson} & 0.0955 & 0.0923 & 0.0863 & 1122 & 118.09 & 0.1227\\
+\em{Negative-Binomial} & 0.0492 & 0.0454 & 0.0387 & 1002 & 51.56 & 0.1251\\
+\em{Quasi Likelihood Poisson} & NA & NA & NA & NA & NA & 0.1227\\
 \bottomrule
 \end{tabular}
 \end{wraptable}

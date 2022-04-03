@@ -350,7 +350,8 @@ stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex", title = 
 
 list(
   "Poisson" = poisson_model,
-  "Negative-Binomial" = neg_bin_model
+  "Negative-Binomial" = neg_bin_model,
+  "Quasi Likelihood Poisson" = quasilik_model
 ) |> 
   imap_dfr(
     ~ DescTools::PseudoR2(
@@ -365,6 +366,7 @@ list(
     ) |> 
       as.list() |> 
       as_tibble() |>
+      mutate("Deviance explained" = 1 - .x$deviance / .x$null.deviance) |>
       mutate(model = .y, .before = 1)
   ) |>
   column_to_rownames("model") %T>%
@@ -379,8 +381,12 @@ fitted_var <- list(
   "Poisson" = as.list(fitted_means),
   "Quasi Likelihood Poisson" = as.list(fitted_means_quasi * summary(quasilik_model)$dispersion),
   "Negative binomial (Pascal)" = as.list(fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta))
-) |> imap_dfr(~ mutate(.x, model = .y, .before = 1))
+) |> imap_dfr(~ as_tibble(.x) |> mutate(model = .y, .before = 1))
 
-fitted_var
-
-df |> group_by(race) |> summarise_all(mean)
+fitted_var  %T>%
+  save_table_tex(
+    caption = "Fitted variance comparison",
+    label = "variance_comparison",
+    wraptable_width = "2.5in",
+  ) |>
+  kable(format = "pipe", digits = 2)
