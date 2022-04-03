@@ -213,7 +213,7 @@ fitted_means
 df_crosscount |> 
   pivot_wider(names_from = "race", values_from = "count", values_fill = 0) |>
   mutate(
-    black_pred = dpois(resp, lambda = fitted_means[1]) * sum(df$race =="black"),
+    black_pred = dpois(resp, lambda = fitted_means[2]) * sum(df$race =="black"),
     white_pred = dpois(resp, lambda = fitted_means[1]) * sum(df$race =="white"),
   ) |> 
   select(
