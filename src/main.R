@@ -213,8 +213,8 @@ fitted_means
 df_crosscount |> 
   pivot_wider(names_from = "race", values_from = "count", values_fill = 0) |>
   mutate(
-    black_pred = dpois(resp, lambda = fitted_means[2]) * sum(df$race =="black"),
-    white_pred = dpois(resp, lambda = fitted_means[1]) * sum(df$race =="white"),
+    black_pred = dpois(resp, lambda = fitted_means["black"]) * sum(df$race =="black"),
+    white_pred = dpois(resp, lambda = fitted_means["white"]) * sum(df$race =="white"),
   ) |> 
   select(
     resp, black, black_pred, white, white_pred
@@ -327,6 +327,13 @@ glm_tests_combined(quasilik_model, save_plots_model_name = "quasi poisson") %T>%
   ) |>
   kable()
 
+fitted_means_quasi <- quasilik_model |> 
+  predict(newdata = tibble(race = c("white", "black"))) |>
+  exp() |>
+  set_names(c("white", "black"))
+
+fitted_means_quasi
+
 ## model comparison
 
 anova(poisson_model, neg_bin_model, quasilik_model) |>
@@ -363,3 +370,17 @@ list(
   column_to_rownames("model") %T>%
   save_table_tex("GoF and IC comparison", "gof_ic_comparison", "3in") |>
   kable()
+
+fitted_var <- list(
+  "Empirical data" = df |> 
+    group_by(race) |> 
+    summarise(mu = var(resp)) |> 
+    pivot_wider(names_from = "race", values_from = "mu"),
+  "Poisson" = as.list(fitted_means),
+  "Quasi Likelihood Poisson" = as.list(fitted_means_quasi * summary(quasilik_model)$dispersion),
+  "Negative binomial (Pascal)" = as.list(fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta))
+) |> imap_dfr(~ mutate(.x, model = .y, .before = 1))
+
+fitted_var
+
+df |> group_by(race) |> summarise_all(mean)
