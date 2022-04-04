@@ -1,33 +1,30 @@
 
 % Table created by stargazer v.5.2.2 by Marek Hlavac, Harvard University. E-mail: hlavac at fas.harvard.edu
-% Date and time: czw, mar 31, 2022 - 00:01:00
-\begin{wraptable}{r}{4.5in} \centering 
+% Date and time: nie, kwi 03, 2022 - 21:32:58
+\begin{table}[!htbp] \centering 
   \caption{Model comparison} 
-  \label{} 
+  \label{tab:stargazer_comparison} 
 \small 
-\begin{tabular}{@{\extracolsep{5pt}}lccc} 
+\begin{tabular}{@{\extracolsep{5pt}}lccccc} 
 \\[-1.8ex]\hline 
 \hline \\[-1.8ex] 
- & \multicolumn{3}{c}{\textit{Dependent variable:}} \\ 
-\cline{2-4} 
-\\[-1.8ex] & \multicolumn{3}{c}{resp} \\ 
-\\[-1.8ex] & \textit{Poisson} & \textit{negative} & \textit{glm: quasipoisson} \\ 
- & \textit{} & \textit{binomial} & \textit{link = log} \\ 
-\\[-1.8ex] & (1) & (2) & (3)\\ 
+\\[-1.8ex] & \textit{Poisson} & \textit{negative} & \textit{glm: quasipoisson} & \multicolumn{2}{c}{\textit{zero-inflated}} \\ 
+ & \textit{} & \textit{binomial} & \textit{link = log} & \multicolumn{2}{c}{\textit{count data}} \\ 
+\\[-1.8ex] & (1) & (2) & (3) & (4) & (5)\\ 
 \hline \\[-1.8ex] 
- racewhite & $-$1.733$^{***}$ & $-$1.733$^{***}$ & $-$1.733$^{***}$ \\ 
-  & (0.147) & (0.238) & (0.194) \\ 
-  & & & \\ 
- Constant & $-$0.650$^{***}$ & $-$0.650$^{***}$ & $-$0.650$^{***}$ \\ 
-  & (0.110) & (0.208) & (0.145) \\ 
-  & & & \\ 
+ racewhite & $-$1.733$^{***}$ & $-$1.733$^{***}$ & $-$1.733$^{***}$ & $-$1.005$^{***}$ & $-$1.073$^{***}$ \\ 
+  & (0.147) & (0.238) & (0.194) & (0.231) & (0.275) \\ 
+  & & & & & \\ 
+ Constant & $-$0.650$^{***}$ & $-$0.650$^{***}$ & $-$0.650$^{***}$ & 0.527$^{***}$ & 0.367 \\ 
+  & (0.110) & (0.208) & (0.145) & (0.140) & (0.254) \\ 
+  & & & & & \\ 
 \hline \\[-1.8ex] 
-Observations & 1,308 & 1,308 & 1,308 \\ 
-Log Likelihood & $-$559.000 & $-$498.900 &  \\ 
-$\theta$ &  & 0.202$^{***}$  (0.041) &  \\ 
-Akaike Inf. Crit. & 1,122.000 & 1,002.000 &  \\ 
+Observations & 1,308 & 1,308 & 1,308 & 1,308 & 1,308 \\ 
+Log Likelihood & $-$559.000 & $-$498.900 &  & $-$495.400 & $-$494.500 \\ 
+$\theta$ &  & 0.202$^{***}$  (0.041) &  &  &  \\ 
+Akaike Inf. Crit. & 1,122.000 & 1,002.000 &  & 998.700 & 999.000 \\ 
 \hline 
 \hline \\[-1.8ex] 
-\textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\textit{Note:}  & \multicolumn{5}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
 \end{tabular} 
-\end{wraptable} 
+\end{table} 

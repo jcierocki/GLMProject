@@ -1,15 +1,16 @@
-\begin{wraptable}{r}{3in}
+\begin{table}[!h]
 
 \caption{\label{tab:gof_ic_comparison}Gof and ic comparison}
 \centering
 \fontsize{9}{11}\selectfont
-\begin{tabular}[t]{>{}lrrrrrr}
+\begin{tabular}[t]{>{}lrrrr}
 \toprule
-  & McFadden & McFaddenAdj & CoxSnell & AIC & G2 & Deviance explained\\
+  & McFadden & CoxSnell & AIC & G2\\
 \midrule
-\em{Poisson} & 0.0955 & 0.0923 & 0.0863 & 1122 & 118.09 & 0.1227\\
-\em{Negative-Binomial} & 0.0492 & 0.0454 & 0.0387 & 1002 & 51.56 & 0.1251\\
-\em{Quasi Likelihood Poisson} & NA & NA & NA & NA & NA & 0.1227\\
+\em{Poisson} & 0.0955 & 0.0863 & 1122.0 & 118.09\\
+\em{Negative binomial} & 0.0492 & 0.0387 & 1001.8 & 51.56\\
+\em{Zero-infl Poisson} & 0.0591 & 0.0465 & 998.7 & 62.28\\
+\em{Zero-infl neg bin} & 0.0549 & 0.0430 & 999.0 & 57.45\\
 \bottomrule
 \end{tabular}
-\end{wraptable}
+\end{table}

@@ -4,13 +4,14 @@ require(kableExtra)
 require(magrittr)
 require(stargazer)
 require(MASS, exclude = "select")
+require(pscl)
 require(DHARMa)
 
 rm(list = ls())
 
 set.seed(1234)
 
-options(knitr.table.format = "pipe", digits = 4)
+options(knitr.table.format = "pipe", digits = 4, knitr.kable.NA = "")
 
 ## functions
 
@@ -334,31 +335,69 @@ fitted_means_quasi <- quasilik_model |>
 
 fitted_means_quasi
 
+## zero-inflated models
+
+countreg::zitest(poisson_model)
+
+zeroinf_poiss_model <- zeroinfl(resp ~ race, data = df, dist = "poisson")
+zeroinf_poiss_model$AIC <- extractAIC(zeroinf_poiss_model)[2]
+zeroinf_poiss_model$AIC
+summary(zeroinf_poiss_model)
+
+zeroinf_negbin_model <- zeroinfl(resp ~ race, data = df, dist = "negbin")
+zeroinf_negbin_model$AIC <- extractAIC(zeroinf_negbin_model)[2]
+zeroinf_negbin_model$AIC
+summary(zeroinf_negbin_model)
+
 ## model comparison
 
 anova(poisson_model, neg_bin_model, quasilik_model) |>
   save_output("anova_model_comparison")
 
-stargazer(poisson_model, neg_bin_model, quasilik_model, type = "text")
+stargazer(poisson_model, neg_bin_model, quasilik_model, zeroinf_poiss_model, zeroinf_negbin_model, type = "text", dep.var.caption = "", dep.var.labels.include = F)
 
-stargazer(poisson_model, neg_bin_model, quasilik_model, type = "latex", title = "Model comparison", font.size = "small") |>
+stargazer(
+  poisson_model, 
+  neg_bin_model, 
+  quasilik_model, 
+  zeroinf_poiss_model, 
+  zeroinf_negbin_model, 
+  dep.var.caption = "", 
+  dep.var.labels.include = F, 
+  type = "latex", 
+  title = "Model comparison", 
+  font.size = "small",
+  label = "tab:stargazer_comparison"
+) |>
   # capture.output(file = "output/stargazer_comparison.tex")
   capture.output() |> 
-  str_replace("^\\\\begin\\{table\\}\\[\\!htbp\\]", "\\\\begin\\{wraptable\\}\\{r\\}\\{4.5in\\}") |>
-  str_replace("^\\\\end\\{table\\}", "\\\\end\\{wraptable\\}") |>
+  # str_replace("^\\\\begin\\{table\\}\\[\\!htbp\\]", "\\\\begin\\{wraptable\\}\\{r\\}\\{6in\\}") |>
+  # str_replace("^\\\\end\\{table\\}", "\\\\end\\{wraptable\\}") |>
   write_lines("output/stargazer_comparison.tex")
+
+zeroinf_pseudor2 <- list(
+  "Zero-infl Poisson" =  zeroinf_poiss_model, 
+  "Zero-infl neg bin" =  zeroinf_negbin_model
+) |>
+  imap_dfr(
+    ~ pR2(.x) |>
+      as.list() |>
+      as_tibble() |>
+      mutate(AIC = extractAIC(.x)[2], model = .y) |>
+      rename(CoxSnell = r2ML) |>
+      select(model, McFadden, CoxSnell, AIC, G2)
+  )
 
 list(
   "Poisson" = poisson_model,
-  "Negative-Binomial" = neg_bin_model,
-  "Quasi Likelihood Poisson" = quasilik_model
+  "Negative binomial" = neg_bin_model
 ) |> 
   imap_dfr(
     ~ DescTools::PseudoR2(
       .x,
       which = c(
         "McFadden",
-        "McFaddenAdj",
+        # "McFaddenAdj",
         "CoxSnell",
         "AIC",
         "G2"
@@ -366,11 +405,11 @@ list(
     ) |> 
       as.list() |> 
       as_tibble() |>
-      mutate("Deviance explained" = 1 - .x$deviance / .x$null.deviance) |>
       mutate(model = .y, .before = 1)
   ) |>
+  bind_rows(zeroinf_pseudor2) |>
   column_to_rownames("model") %T>%
-  save_table_tex("GoF and IC comparison", "gof_ic_comparison", "3in") |>
+  save_table_tex("GoF and IC comparison", "gof_ic_comparison") |>
   kable()
 
 fitted_var <- list(
@@ -379,14 +418,13 @@ fitted_var <- list(
     summarise(mu = var(resp)) |> 
     pivot_wider(names_from = "race", values_from = "mu"),
   "Poisson" = as.list(fitted_means),
-  "Quasi Likelihood Poisson" = as.list(fitted_means_quasi * summary(quasilik_model)$dispersion),
-  "Negative binomial (Pascal)" = as.list(fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta))
-) |> imap_dfr(~ as_tibble(.x) |> mutate(model = .y, .before = 1))
-
-fitted_var  %T>%
+  "Quasi-Poisson" = as.list(fitted_means_quasi * summary(quasilik_model)$dispersion),
+  "Negative binomial" = as.list(fitted_means_nb + fitted_means_nb^2 * (1/neg_bin_model$theta))
+) |> 
+  imap_dfr(~ as_tibble(.x) |> mutate(model = .y, .before = 1)) %T>%
   save_table_tex(
     caption = "Fitted variance comparison",
     label = "variance_comparison",
-    wraptable_width = "2.5in",
+    wraptable_width = "2in",
   ) |>
   kable(format = "pipe", digits = 2)
